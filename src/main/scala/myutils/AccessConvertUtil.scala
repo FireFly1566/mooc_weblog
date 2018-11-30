@@ -45,7 +45,7 @@ object AccessConvertUtil {
         cmsId = cmsTypeId(1).toLong
       }
 
-      val city = ""
+      val city = IpUtils.getCity(ip)
       val time = splits(0)
       val day = time.substring(0, 10).replaceAll("-", "")
 
