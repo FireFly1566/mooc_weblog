@@ -1,7 +1,6 @@
 package second_analyze
 
-import org.apache.spark.sql.SparkSession
-
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import myutils.AccessConvertUtil
 
 object SparkStatCleanJob {
@@ -15,8 +14,16 @@ object SparkStatCleanJob {
     val accessDF = spark.createDataFrame(accessRDD.map(x => AccessConvertUtil.parseLog(x)),
       AccessConvertUtil.struct)
 
-    accessDF.printSchema()
-    accessDF.show(false)
+    //    accessDF.printSchema()
+    //    accessDF.show(false)
+
+    //将数据按照天输出
+    /*
+    * 调优点：通过 coalesce控制文件输出的大小
+    * */
+    accessDF.coalesce(1).write.format("parquet").mode(SaveMode.Overwrite)
+      .partitionBy("day")
+      .save("D://weblog//out1")
 
     spark.stop()
 
