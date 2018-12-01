@@ -15,10 +15,11 @@ object StatDAO {
     var connection: Connection = null
     var pstmt: PreparedStatement = null
 
-    connection.setAutoCommit(false)
-
     try {
-      val sql = "insert into table day_video_access_topn_stat(day,cms_id,times) values (?,?,?)"
+
+      connection = MySQLUtils.getConnection()
+      connection.setAutoCommit(false)
+      val sql = "insert into day_video_access_topn_stat(day,cms_id,times) values (?,?,?)"
       pstmt = connection.prepareStatement(sql)
       for (ele <- list) {
         /*
