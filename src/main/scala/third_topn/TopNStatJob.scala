@@ -1,6 +1,6 @@
 package third_topn
 
-import myutils.{DayCityVideoAccessStat, DayVideoAccessStat, StatDAO}
+import myutils.{DayCityVideoAccessStat, DayVideoAccessStat, DayVideoTrafficsStat, StatDAO}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
@@ -111,6 +111,39 @@ object TopNStatJob {
 
   }
 
+  def videoTrafficsTopNStat(spark: SparkSession, accessDF: DataFrame) = {
+    import spark.implicits._
+    val trafficsDF = accessDF.filter($"day" === "20170511" && $"cmsType" === "video")
+      .groupBy("day", "cmsId").agg(sum("traffic").as("traffics"))
+      .orderBy($"traffics".desc)
+      //.show(false)
+
+    /*
+   * 将流量统计结果写入到数据库
+   * */
+    try {
+      trafficsDF.foreachPartition(partitionOfRecords => {
+        val list = new ListBuffer[DayVideoTrafficsStat]
+
+        partitionOfRecords.foreach(info => {
+          val day = info.getAs[String]("day")
+          val cmsId = info.getAs[Long]("cmsId")
+          val traffics = info.getAs[Long]("traffics")
+
+          list.append(DayVideoTrafficsStat(day, cmsId, traffics))
+
+        })
+
+        StatDAO.insertDayVideoTrafficsAccessStat(list)
+
+      })
+    } catch {
+      case e: Exception => e.printStackTrace()
+    }
+
+
+  }
+
   def main(args: Array[String]): Unit = {
 
     /*
@@ -134,7 +167,12 @@ object TopNStatJob {
     /*
     * 按照地市统计 TopN课程
     * */
-    cityAccessTopNStat(spark, accessDF)
+    //cityAccessTopNStat(spark, accessDF)
+
+    /*
+    * 按照流量统计 TopN
+    * */
+    videoTrafficsTopNStat(spark,accessDF)
 
     spark.stop()
   }
