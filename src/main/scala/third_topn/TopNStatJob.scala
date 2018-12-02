@@ -1,6 +1,7 @@
 package third_topn
 
-import myutils.{DayVideoAccessStat, StatDAO}
+import myutils.{DayCityVideoAccessStat, DayVideoAccessStat, StatDAO}
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -61,6 +62,55 @@ object TopNStatJob {
 
   }
 
+  def cityAccessTopNStat(spark: SparkSession, accessDF: DataFrame) = {
+    /*
+   * DataFrame 方式统计
+   * */
+    import spark.implicits._
+    val cityAccessTopNDF = accessDF.filter($"day" === "20170511" && $"cmsType" === "video")
+      .groupBy("day", "city", "cmsId")
+      .agg(count("cmsId").as("times"))
+
+    //cityAccessTopNDF.show(false)
+
+    //Window 函数在 Spark SQL 中的使用
+    val top3DF = cityAccessTopNDF.select(
+      cityAccessTopNDF("day"),
+      cityAccessTopNDF("city"),
+      cityAccessTopNDF("cmsId"),
+      cityAccessTopNDF("times"),
+
+      row_number().over(Window.partitionBy(cityAccessTopNDF("city"))
+        .orderBy(cityAccessTopNDF("times").desc))
+        .as("times_rank")
+    ).filter("times_rank <= 3") //.show(false)
+
+
+    try {
+      top3DF.foreachPartition(partitionOfRecords => {
+        val list = new ListBuffer[DayCityVideoAccessStat]
+
+        partitionOfRecords.foreach(info => {
+          val day = info.getAs[String]("day")
+          val cmsId = info.getAs[Long]("cmsId")
+          val city = info.getAs[String]("city")
+          val times = info.getAs[Long]("times")
+          val timesRank = info.getAs[Int]("times_rank")
+
+          list.append(DayCityVideoAccessStat(day, cmsId, city, times, timesRank))
+
+        })
+
+        StatDAO.insertDayCityVideoAccessStat(list)
+
+      })
+    } catch {
+      case e: Exception => e.printStackTrace()
+    }
+
+
+  }
+
   def main(args: Array[String]): Unit = {
 
     /*
@@ -79,8 +129,12 @@ object TopNStatJob {
     /*
     * 最受欢迎的 TopN 视频课程
     * */
-    videoAccessTopNStat(spark, accessDF)
+    //videoAccessTopNStat(spark, accessDF)
 
+    /*
+    * 按照地市统计 TopN课程
+    * */
+    cityAccessTopNStat(spark, accessDF)
 
     spark.stop()
   }
