@@ -155,7 +155,7 @@ object StatDAO {
     val tables = Array(
       "day_video_access_topn_stat",
       "day_video_city_access_topn_stat",
-      "create table day_video_traffics_topn_stat"
+      "day_video_traffics_topn_stat"
     )
 
     var connection: Connection = null
@@ -165,7 +165,7 @@ object StatDAO {
       connection = MySQLUtils.getConnection()
 
       for (table <- tables) {
-        val deleteSQL = s"delete from $table where day=?"
+        val deleteSQL = s"delete from $table where day = ?"
         pstmt = connection.prepareStatement(deleteSQL)
         pstmt.setString(1,day)
         pstmt.executeUpdate()
