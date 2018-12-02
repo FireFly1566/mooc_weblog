@@ -29,6 +29,16 @@ import scala.collection.mutable.ListBuffer
 * */
 
 /*
+* create table day_video_traffics_topn_stat(
+* day varchar(8) not null,
+* cms_id bigint(10) not null,
+  traffics bigint(10) not null,
+  primary key (day,cms_id,city)
+* );
+* */
+
+
+/*
 * 各个维度统计的DAO操作
 * */
 object StatDAO {
@@ -89,6 +99,41 @@ object StatDAO {
         pstmt.setString(3, ele.city)
         pstmt.setLong(4,ele.times)
         pstmt.setInt(5,ele.timesRank)
+
+        pstmt.addBatch()
+      }
+      pstmt.executeBatch() //执行批量处理
+      connection.commit() //手工提交
+
+
+    } catch {
+      case e: Exception => e.printStackTrace()
+    } finally {
+      MySQLUtils.release(connection, pstmt)
+    }
+  }
+
+
+  /*
+ * 批量保存 DayVideoTrafficsStat 到数据库
+ * */
+  def insertDayVideoTrafficsAccessStat(list: ListBuffer[DayVideoTrafficsStat]) = {
+    var connection: Connection = null
+    var pstmt: PreparedStatement = null
+
+    try {
+
+      connection = MySQLUtils.getConnection()
+      connection.setAutoCommit(false)
+      val sql = "insert into day_video_traffics_topn_stat(day,cms_id,traffics) values (?,?,?)"
+      pstmt = connection.prepareStatement(sql)
+      for (ele <- list) {
+        /*
+        * 批处理使用手动提交
+        * */
+        pstmt.setString(1, ele.day)
+        pstmt.setLong(2, ele.cmsId)
+        pstmt.setLong(3, ele.traffics)
 
         pstmt.addBatch()
       }
